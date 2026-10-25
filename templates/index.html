@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Website Health Monitor with Auto-Alerts | SaaS Dashboard</title>
+  <meta name="description" content="Real-time website health monitor, uptime tracker, response time analytics, and automatic email alerting dashboard.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <!-- Chart.js Local with CDN Fallback -->
+  <script src="/static/chart.umd.min.js"></script>
+  <script>
+    if (typeof Chart === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"><\/script>');
+    }
+  </script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h2>HealthPulse</h2>
+          <span>Monitor & Alerts</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#overview" class="nav-item active" data-view="overview" id="navItemOverview">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>Dashboard</span>
+        </a>
+        <a href="#websites" class="nav-item" data-view="websites" id="navItemWebsites">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <span>Monitored Sites</span>
+          <span class="nav-badge" id="sidebarSitesBadge">0</span>
+        </a>
+        <a href="#history" class="nav-item" data-view="history" id="navItemHistory">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>Health History</span>
+          <span class="nav-badge" id="sidebarHistoryBadge">0</span>
+        </a>
+        <a href="#alerts" class="nav-item" data-view="alerts" id="navItemAlerts">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span>Alert Events</span>
+          <span class="nav-badge alert-badge" id="sidebarAlertsBadge">0</span>
+        </a>
+      </nav>
+
+      <!-- Sidebar Status Card -->
+      <div class="sidebar-footer">
+        <div class="system-status-card">
+          <div class="status-header">
+            <span class="status-indicator-dot online"></span>
+            <span class="status-title">Background Monitor</span>
+          </div>
+          <div class="status-detail">
+            <span id="schedulerIntervalText">Interval: 60s</span>
+            <span id="countdownText" class="countdown-tag">Next: 15s</span>
+          </div>
+          <div class="smtp-pill" id="smtpStatusPill">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <span id="smtpStatusText">Checking SMTP...</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="main-wrapper">
+      <!-- Top Navigation Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="mobile-toggle" id="mobileMenuToggle" aria-label="Toggle Navigation">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div class="page-title-box">
+            <h1 id="pageHeading">Website Health Monitor</h1>
+            <p id="pageSubheading">Real-time status tracking, latency metrics, and automated alerts</p>
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="btn btn-secondary" id="seedDemoBtn" title="Load realistic sample websites, metrics, and alerts">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            <span>Load Demo Data</span>
+          </button>
+          <button class="btn btn-secondary" id="checkAllBtn" title="Perform immediate health check on all websites">
+            <svg class="spin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+            <span>Check All Now</span>
+          </button>
+          <button class="btn btn-primary" id="openAddModalBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Add Website</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Scrollable Content -->
+      <main class="main-content">
+        <!-- SMTP Status Notice (Dynamic) -->
+        <div class="smtp-banner" id="smtpBanner" style="display: none;">
+          <div class="banner-content">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <div class="banner-text">
+              <strong>Email Notifications Notice:</strong>
+              <span id="smtpBannerText">SMTP credentials are not configured in your <code>.env</code> file. Health monitoring runs normally and alerts are logged to SQLite; configure SMTP to receive real emails.</span>
+            </div>
+          </div>
+          <button class="banner-dismiss" id="dismissBannerBtn" aria-label="Dismiss banner">&times;</button>
+        </div>
+
+        <!-- Metric Cards (Visible across Dashboard) -->
+        <section class="metrics-grid" id="metricsSection">
+          <div class="metric-card total-card" onclick="switchView('websites')" style="cursor: pointer;" title="View all monitored sites">
+            <div class="metric-header">
+              <span class="metric-label">Monitored Sites</span>
+              <div class="metric-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+              </div>
+            </div>
+            <div class="metric-value" id="statTotalSites">0</div>
+            <div class="metric-footer">
+              <span class="subtext">Click to manage sites</span>
+            </div>
+          </div>
+
+          <div class="metric-card online-card" onclick="filterSitesByStatus('online')" style="cursor: pointer;" title="Filter online sites">
+            <div class="metric-header">
+              <span class="metric-label">Online Sites</span>
+              <div class="metric-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              </div>
+            </div>
+            <div class="metric-value online-text" id="statOnlineSites">0</div>
+            <div class="metric-footer">
+              <span class="badge badge-success" id="statOnlinePercent">100% Up</span>
+            </div>
+          </div>
+
+          <div class="metric-card offline-card" onclick="filterSitesByStatus('offline')" style="cursor: pointer;" title="Filter offline incidents">
+            <div class="metric-header">
+              <span class="metric-label">Offline Sites</span>
+              <div class="metric-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              </div>
+            </div>
+            <div class="metric-value offline-text" id="statOfflineSites">0</div>
+            <div class="metric-footer">
+              <span class="badge badge-danger" id="statOfflineSub">0 incidents</span>
+            </div>
+          </div>
+
+          <div class="metric-card alert-card" onclick="switchView('alerts')" style="cursor: pointer;" title="View alert events">
+            <div class="metric-header">
+              <span class="metric-label">Alert Events</span>
+              <div class="metric-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              </div>
+            </div>
+            <div class="metric-value" id="statTotalAlerts">0</div>
+            <div class="metric-footer">
+              <span class="subtext">Click to view feed</span>
+            </div>
+          </div>
+
+          <div class="metric-card latency-card" onclick="switchView('history')" style="cursor: pointer;" title="View latency history">
+            <div class="metric-header">
+              <span class="metric-label">Avg Response Time</span>
+              <div class="metric-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+            </div>
+            <div class="metric-value" id="statAvgResponseTime">-- ms</div>
+            <div class="metric-footer">
+              <span class="subtext">Click to view trends</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ====================================================================
+             SECTION 1: Monitored Websites Table
+        ==================================================================== -->
+        <section class="dashboard-section" id="sectionWebsites">
+          <div class="section-card">
+            <div class="section-card-header">
+              <div class="header-info">
+                <h3>Monitored Websites</h3>
+                <p>Live health status, HTTP status codes, latency, and instant on-demand checks</p>
+              </div>
+              <div class="header-controls">
+                <div class="search-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input type="text" id="siteSearchInput" placeholder="Filter websites..." aria-label="Search websites">
+                </div>
+                <button class="btn btn-secondary btn-sm" id="resetFilterBtn" style="display:none;" onclick="resetSiteFilter()">Clear Filter</button>
+              </div>
+            </div>
+
+            <!-- Websites Table -->
+            <div class="table-container">
+              <table class="data-table" id="websitesTable">
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Website Name & URL</th>
+                    <th>HTTP Code</th>
+                    <th>Response Time</th>
+                    <th>Last Checked</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="websitesTableBody">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+
+              <!-- Empty State -->
+              <div class="empty-state" id="emptyWebsitesState" style="display: none;">
+                <div class="empty-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </div>
+                <h4>No websites match criteria</h4>
+                <p>Add your first web application or click "Load Demo Data" to explore.</p>
+                <button class="btn btn-primary" onclick="openAddModal()">Add Website Now</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ====================================================================
+             SECTION 2: Response Time Chart Analytics
+        ==================================================================== -->
+        <section class="dashboard-section" id="sectionAnalytics">
+          <div class="section-card">
+            <div class="section-card-header">
+              <div class="header-info">
+                <h3>Response Time Trends</h3>
+                <p>Visualizing latency (ms) across historical checks</p>
+              </div>
+              <div class="header-controls">
+                <label for="chartWebsiteSelect" class="text-sm text-muted">Filter site:</label>
+                <select id="chartWebsiteSelect" class="form-select" aria-label="Select website for chart">
+                  <option value="all">All Websites</option>
+                </select>
+              </div>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="responseTimeChart" height="100"></canvas>
+            </div>
+          </div>
+        </section>
+
+        <!-- ====================================================================
+             SECTION 3: Health History (Audit Log)
+        ==================================================================== -->
+        <section class="dashboard-section" id="sectionHistory">
+          <div class="section-card">
+            <div class="section-card-header">
+              <div class="header-info">
+                <h3>Health Check History</h3>
+                <p>Comprehensive audit log of recent background and on-demand checks</p>
+              </div>
+              <div class="header-controls">
+                <label for="historyWebsiteSelect" class="text-sm text-muted">Filter Site:</label>
+                <select id="historyWebsiteSelect" class="form-select" aria-label="Filter history by website">
+                  <option value="all">All Monitored Sites</option>
+                </select>
+                <button class="btn btn-secondary btn-sm" id="refreshHistoryBtn" title="Refresh health history">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                  <span>Refresh</span>
+                </button>
+              </div>
+            </div>
+            <div class="table-container">
+              <table class="data-table" id="historyTable">
+                <thead>
+                  <tr>
+                    <th>Timestamp (UTC)</th>
+                    <th>Website Name & URL</th>
+                    <th>Health Status</th>
+                    <th>HTTP Code</th>
+                    <th>Latency (ms)</th>
+                    <th>Result / Details</th>
+                  </tr>
+                </thead>
+                <tbody id="historyTableBody">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+              <div class="empty-state" id="emptyHistoryState" style="display: none;">
+                <p>No health check history recorded yet.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ====================================================================
+             SECTION 4: Recent Alerts Feed
+        ==================================================================== -->
+        <section class="dashboard-section" id="sectionAlerts">
+          <div class="section-card">
+            <div class="section-card-header">
+              <div class="header-info">
+                <h3>Alert Events & Delivery</h3>
+                <p>Downtime and recovery triggers with SMTP transmission log</p>
+              </div>
+            </div>
+            <div class="alerts-feed-container" id="alertsFeed">
+              <!-- Dynamic Alert Cards -->
+            </div>
+            <div class="empty-state compact-empty" id="emptyAlertsState" style="display: none;">
+              <p>No alert events triggered yet. All services running smoothly!</p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Add Website Modal -->
+  <div class="modal-overlay" id="addWebsiteModal" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="addModalTitle">
+      <div class="modal-header">
+        <h3 id="addModalTitle">Add New Monitored Website</h3>
+        <button class="modal-close" id="closeAddModalBtn" aria-label="Close modal">&times;</button>
+      </div>
+      <form id="addWebsiteForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="inputUrl">Website URL <span class="required">*</span></label>
+            <input type="url" id="inputUrl" class="form-input" placeholder="https://example.com" required autocomplete="off">
+            <span class="form-help">Must start with <code>http://</code> or <code>https://</code>. SSRF protections reject internal/private destinations.</span>
+            <div class="form-error" id="urlErrorMsg"></div>
+          </div>
+          <div class="form-group">
+            <label for="inputName">Display Name (Optional)</label>
+            <input type="text" id="inputName" class="form-input" placeholder="e.g. Production API, College Portal" autocomplete="off">
+            <span class="form-help">Leave blank to automatically use the domain hostname.</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelAddModalBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="submitAddSiteBtn">
+            <span class="btn-text">Add & Check Website</span>
+            <span class="btn-spinner" style="display: none;"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal-overlay" id="deleteModal" aria-hidden="true">
+    <div class="modal-box modal-sm" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3>Confirm Deletion</h3>
+        <button class="modal-close" id="closeDeleteModalBtn" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to stop monitoring <strong id="deleteSiteName">this website</strong>?</p>
+        <p class="text-muted text-sm">All historical check records and associated alert logs for this site will be permanently removed.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cancelDeleteBtn">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete Website</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <!-- App Script -->
+  <script src="/static/script.js"></script>
+</body>
+</html>
