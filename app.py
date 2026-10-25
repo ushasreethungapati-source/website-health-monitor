@@ -261,7 +261,7 @@ app = create_app()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    host = os.environ.get("HOST", "127.0.0.1")
+    host = os.environ.get("HOST", "0.0.0.0")
     debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() in ("true", "1")
     print(f"\n=======================================================")
     print(f"  Website Health Monitor with Auto-Alerts")
